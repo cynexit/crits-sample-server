@@ -1,0 +1,12 @@
+[Unit]
+Description=crits sample server
+
+[Service]
+User=crits
+ExecStart=/path/to/crits-sample-server
+Restart=always
+StandardInput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
