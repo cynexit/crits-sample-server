@@ -6,29 +6,21 @@ A very simple file server for maleware samples stored in CRITs, works without au
 
 ## Usage
 
-Download the only dependencie, mgo:
+Download the dependencies:
 ```bash
 go get gopkg.in/mgo.v2
-```
-Edit `main.go` and fill in the constants with your own values.
-```go
-const (
-
-	// your mongo server
-	ServerName = "1.2.3.4"
-
-	// the name of your crits db
-	DatabaseName = "crits"
-
-	// the http binding as "IP:PORT"
-	HttpBinding = ":7889"
-)
+go get github.com/julienschmidt/httprouter
 ```
 Start the server by using `go run`, `go build` or `go install`, whatever you prefer.
 There is also an example service script for systemd if need it.
 
+You need to provide the following flags to the service:
+```
+./crits-sample-server -mongoServer=1.2.3.4 -dbName=crits -httpBinding=:7889
+```
+
 You may now download samples by navigating to
 ```
-http://localhost:7889/?id=CRITs-ObjectId
+http://localhost:7889/CRITs-ObjectId
 ```
-Of course you need to replace localhost and 7889 with your settings. Also you have to replace `CRITs-ObjectId` with an actuall CRITs sample id.
+The service supports download by CRITs-ObjectId, MD5, SHA1 and SHA256.

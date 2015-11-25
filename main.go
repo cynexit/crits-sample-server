@@ -1,10 +1,15 @@
 package main
 
 import (
+	"encoding/hex"
+	"flag"
 	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/julienschmidt/httprouter"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"net/http"
 )
 
 type Sample struct {
@@ -20,24 +25,24 @@ type SampleChunk struct {
 	FilesId bson.ObjectId `bson:"files_id"`
 }
 
-const (
-	// your mongo server
-	ServerName = "1.2.3.4"
-
-	// the name of your crits db
-	DatabaseName = "crits"
-
-	// the http binding as "IP:PORT"
-	HttpBinding = ":7889"
-)
-
 var (
 	session *mgo.Session
+	dbName  string
 )
 
 func main() {
+	var mongoServer, httpBinding string
+	flag.StringVar(&mongoServer, "mongoServer", "", "The connection to the mongo server")
+	flag.StringVar(&dbName, "dbName", "", "The database containing the crits collections")
+	flag.StringVar(&httpBinding, "httpBinding", "", "The desired HTTP binding")
+	flag.Parse()
+
+	if mongoServer == "" || dbName == "" || httpBinding == "" {
+		panic("Please set mongoServer, dbName, and httpBinding!")
+	}
+
 	var err error
-	session, err = mgo.Dial(ServerName)
+	session, err = mgo.Dial(mongoServer)
 	if err != nil {
 		panic(err)
 	}
@@ -45,20 +50,43 @@ func main() {
 
 	session.SetMode(mgo.Monotonic, true)
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(HttpBinding, nil)
+	router := httprouter.New()
+	router.GET("/:id", handler)
+	log.Fatal(http.ListenAndServe(httpBinding, router))
 
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	if len(id) != 24 {
+func handler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	id := ps.ByName("id")
+	idLen := len(id)
+
+	_, err := hex.DecodeString(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	var constraint bson.M
+
+	if idLen == 24 {
+		// critsId
+		constraint = bson.M{"_id": bson.ObjectIdHex(id)}
+	} else if idLen == 32 {
+		// md5
+		constraint = bson.M{"md5": id}
+	} else if idLen == 40 {
+		// sha1
+		constraint = bson.M{"sha1": id}
+	} else if idLen == 64 {
+		// sha256
+		constraint = bson.M{"sa256": id}
+	} else {
 		http.NotFound(w, r)
 		return
 	}
 
 	var s Sample
-	session.DB(DatabaseName).C("sample").Find(bson.M{"_id": bson.ObjectIdHex(id)}).One(&s)
+	session.DB(dbName).C("sample").Find(constraint).One(&s)
 
 	if s.Id == "" {
 		http.NotFound(w, r)
@@ -66,7 +94,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sc SampleChunk
-	session.DB(DatabaseName).C("sample.chunks").Find(bson.M{"files_id": bson.ObjectIdHex(s.FilesId.Hex())}).One(&sc)
+	session.DB(dbName).C("sample.chunks").Find(bson.M{"files_id": bson.ObjectIdHex(s.FilesId.Hex())}).One(&sc)
 
 	if sc.Id == "" {
 		http.NotFound(w, r)
