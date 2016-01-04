@@ -70,15 +70,19 @@ func handler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	if idLen == 24 {
 		// critsId
+		fmt.Println("Looking for critsId", id)
 		constraint = bson.M{"_id": bson.ObjectIdHex(id)}
 	} else if idLen == 32 {
 		// md5
+		fmt.Println("Looking for md5", id)
 		constraint = bson.M{"md5": id}
 	} else if idLen == 40 {
 		// sha1
+		fmt.Println("Looking for sha1", id)
 		constraint = bson.M{"sha1": id}
 	} else if idLen == 64 {
 		// sha256
+		fmt.Println("Looking for sha256", id)
 		constraint = bson.M{"sa256": id}
 	} else {
 		http.NotFound(w, r)
@@ -102,5 +106,6 @@ func handler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 
 	w.Header().Set("Content-Disposition", "attachment; filename="+s.FileName)
-	fmt.Fprint(w, sc.Data.Data)
+	w.Header().Set("Content-Type", "application/octet-stream")
+	fmt.Fprint(w, string(sc.Data.Data))
 }
